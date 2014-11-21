@@ -34,4 +34,10 @@ public class ElasticsearchHttpAppenderTest {
         }
     }
 
+    @Test
+    public void testTimeLog() {
+        Logger logger = LogManager.getLogger("time");
+        logger.info("Hello World");
+    }
+
 }

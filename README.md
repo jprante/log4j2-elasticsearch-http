@@ -9,6 +9,7 @@ In the `log4j2.xml` configuration file, you can specify the following parameters
 `url` the Elasticsearch HTTP node \_bulk endpoint URL (default: `http://localhost:9200/_bulk`)
 
 `index` the index name of the Elasticsearch cluster to write log messages to (default: `log4j2`)
+The index name may be a date format string like 'log4j2-'yyyyMMdd
 
 `type` the type of the Elasticsearch index to write log messages to (default: `log4j2`)
 
@@ -19,10 +20,19 @@ In the `log4j2.xml` configuration file, you can specify the following parameters
     <configuration status="OFF">
         <appenders>
             <NoSql name="elasticsearchAppender">
-                <Elasticsearch url="htp://localhost:9200/_bulk" index="log4j2" type="log4j2"/>
+                <Elasticsearch url="http://localhost:9200/_bulk" index="log4j2" type="log4j2"/>
+            </NoSql>
+            <NoSql name="elasticsearchTimeAppender">
+                <Elasticsearch url="http://localhost:9200/_bulk" index="'log4j2-'yyyyMMdd" type="log4j2"/>
             </NoSql>
         </appenders>
         <loggers>
+            <logger name="test">
+                <appender-ref ref="elasticsearchAppender"/>
+            </logger>
+            <logger name="time">
+                <appender-ref ref="elasticsearchTimeAppender"/>
+            </logger>
             <root level="info">
                 <appender-ref ref="elasticsearchAppender"/>
             </root>
@@ -67,6 +77,7 @@ In the `log4j2.xml` configuration file, you can specify the following parameters
 
 | Log4j2 Elasticsearch HTTP appender   | Release date |
 | -------------------------------------| -------------|
+| 1.0.1                                | Nov 21, 2014 |
 | 1.0.0                                | Sep 15, 2014 |
 
 
@@ -85,7 +96,7 @@ In the `log4j2.xml` configuration file, you can specify the following parameters
             <dependency>
                 <groupId>org.xbib.logging.log4j2</groupId>
                 <artifactId>log4j2-elasticsearch-http</artifactId>
-                <version>1.0.0</version>
+                <version>1.0.1</version>
             </dependency>
         </dependencies>
 

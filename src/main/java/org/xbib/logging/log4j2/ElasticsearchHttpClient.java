@@ -186,6 +186,7 @@ public class ElasticsearchHttpClient {
     }
 
     private String build(String index, String type, boolean create, Map<String,Object> source) {
+        index = index.indexOf('\'') < 0 ? index : getIndexNameDateFormat(index).format(new Date());
         StringBuilder sb = new StringBuilder();
         sb.append("{\"").append(create ? "create" : "index")
                 .append("\":{\"_index\":\"").append(index)
@@ -334,6 +335,17 @@ public class ElasticsearchHttpClient {
             formatter.applyPattern(ISO_FORMAT);
             formatter.setTimeZone(GMT);
             formatters.put(format, formatter);
+        }
+        return formatter;
+    }
+
+    private SimpleDateFormat getIndexNameDateFormat(String index) {
+        Map<String, SimpleDateFormat> formatters = df.get();
+        SimpleDateFormat formatter = formatters.get(index);
+        if (formatter == null) {
+            formatter = new SimpleDateFormat();
+            formatter.applyPattern(index);
+            formatters.put(index, formatter);
         }
         return formatter;
     }
