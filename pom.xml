@@ -10,7 +10,7 @@
 
     <groupId>org.xbib.logging.log4j2</groupId>
     <artifactId>log4j2-elasticsearch-http</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.3</version>
     <packaging>jar</packaging>
 
     <inceptionYear>2014</inceptionYear>
@@ -40,7 +40,7 @@
         <github.global.server>github</github.global.server>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.compile.version>1.7</java.compile.version>
-        <log4j2.version>2.0</log4j2.version>
+        <log4j2.version>2.1</log4j2.version>
     </properties>
 
     <dependencies>

@@ -23,13 +23,17 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.Reader;
+import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -243,8 +247,19 @@ public class ElasticsearchHttpClient {
             if (started) {
                 sb.append(',');
             }
-            sb.append("\"").append(me.getKey()).append("\":");
-            build(sb, me.getValue());
+            // try to parse message as JSON
+            if ("message".equals(me.getKey()) && me.getValue() != null ) {
+                JsonParser parser = new JsonParser(new StringReader(me.getValue().toString()));
+                try {
+                    build(sb, (Map<String,Object>)parser.parse());
+                } catch (Throwable e) {
+                    sb.append("\"").append(me.getKey()).append("\":");
+                    build(sb, me.getValue());
+                }
+            } else {
+                sb.append("\"").append(me.getKey()).append("\":");
+                build(sb, me.getValue());
+            }
             started = true;
         }
     }
@@ -357,4 +372,341 @@ public class ElasticsearchHttpClient {
         return getDateFormat(ISO_FORMAT).format(date);
     }
 
+    class JsonParser {
+
+        private static final int DEFAULT_BUFFER_SIZE = 1024;
+
+        private final Reader reader;
+
+        private final char[] buf;
+
+        private int index;
+
+        private int fill;
+
+        private int ch;
+
+        private StringBuilder sb;
+
+        private int start;
+
+        public JsonParser(Reader reader) {
+            this(reader, DEFAULT_BUFFER_SIZE);
+        }
+
+        public JsonParser(Reader reader, int buffersize) {
+            this.reader = reader;
+            buf = new char[buffersize];
+            start = -1;
+        }
+
+        public Object parse() throws IOException {
+            read();
+            skipBlank();
+            Object result = parseValue();
+            skipBlank();
+            if (ch != -1) {
+                throw new IOException("unexpected character: " + ch);
+            }
+            return result;
+        }
+
+        private Object parseValue() throws IOException {
+            switch (ch) {
+                case 'n':
+                    return parseNull();
+                case 't':
+                    return parseTrue();
+                case 'f':
+                    return parseFalse();
+                case '"':
+                    return parseString();
+                case '[':
+                    return parseList();
+                case '{':
+                    return parseMap();
+                case '-':
+                case '+':
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                    return parseNumber();
+            }
+            throw new IOException("value");
+        }
+
+        private List<Object> parseList() throws IOException {
+            read();
+            List<Object> list = new ArrayList<Object>();
+            skipBlank();
+            if (parseChar(']')) {
+                return list;
+            }
+            do {
+                skipBlank();
+                list.add(parseValue());
+                skipBlank();
+            } while (parseChar(','));
+            if (!parseChar(']')) {
+                expected("',' or ']'");
+            }
+            return list;
+        }
+
+        private Map<String,Object> parseMap() throws IOException {
+            read();
+            Map<String,Object> object = new LinkedHashMap<String,Object>();
+            skipBlank();
+            if (parseChar('}')) {
+                return object;
+            }
+            do {
+                skipBlank();
+                if (ch != '"') {
+                    expected("name");
+                }
+                String name = parseString();
+                skipBlank();
+                if (!parseChar(':')) {
+                    expected("':'");
+                }
+                skipBlank();
+                object.put(name, parseValue());
+                skipBlank();
+            } while (parseChar(','));
+            if (!parseChar('}')) {
+                expected("',' or '}'");
+            }
+            return object;
+        }
+
+        private Object parseNull() throws IOException {
+            read();
+            checkForChar('u');
+            checkForChar('l');
+            checkForChar('l');
+            return null;
+        }
+
+        private Object parseTrue() throws IOException {
+            read();
+            checkForChar('r');
+            checkForChar('u');
+            checkForChar('e');
+            return Boolean.TRUE;
+        }
+
+        private Object parseFalse() throws IOException {
+            read();
+            checkForChar('a');
+            checkForChar('l');
+            checkForChar('s');
+            checkForChar('e');
+            return Boolean.FALSE;
+        }
+
+        private void checkForChar(char ch) throws IOException {
+            if (!parseChar(ch)) {
+                expected("'" + ch + "'");
+            }
+        }
+
+        private String parseString() throws IOException {
+            read();
+            startCapture();
+            while (ch != '"') {
+                if (ch == '\\') {
+                    pauseCapture();
+                    parseEscaped();
+                    startCapture();
+                } else if (ch < 0x20) {
+                    expected("valid string character");
+                } else {
+                    read();
+                }
+            }
+            String s = endCapture();
+            read();
+            return s;
+        }
+
+        private void parseEscaped() throws IOException {
+            read();
+            switch (ch) {
+                case '"':
+                case '/':
+                case '\\':
+                    sb.append((char) ch);
+                    break;
+                case 'b':
+                    sb.append('\b');
+                    break;
+                case 't':
+                    sb.append('\t');
+                    break;
+                case 'f':
+                    sb.append('\f');
+                    break;
+                case 'n':
+                    sb.append('\n');
+                    break;
+                case 'r':
+                    sb.append('\r');
+                    break;
+                case 'u':
+                    char[] hex = new char[4];
+                    for (int i = 0; i < 4; i++) {
+                        read();
+                        if (!isHexDigit()) {
+                            expected("hexadecimal digit");
+                        }
+                        hex[i] = (char) ch;
+                    }
+                    sb.append((char) Integer.parseInt(String.valueOf(hex), 16));
+                    break;
+                default:
+                    expected("valid escape sequence");
+            }
+            read();
+        }
+
+        private Object parseNumber() throws IOException {
+            startCapture();
+            parseChar('-');
+            int firstDigit = ch;
+            if (!parseDigit()) {
+                expected("digit");
+            }
+            if (firstDigit != '0') {
+                while (parseDigit()) {
+                }
+            }
+            parseFraction();
+            parseExponent();
+            return endCapture();
+        }
+
+        private boolean parseFraction() throws IOException {
+            if (!parseChar('.')) {
+                return false;
+            }
+            if (!parseDigit()) {
+                expected("digit");
+            }
+            while (parseDigit()) {
+            }
+            return true;
+        }
+
+        private boolean parseExponent() throws IOException {
+            if (!parseChar('e') && !parseChar('E')) {
+                return false;
+            }
+            if (!parseChar('+')) {
+                parseChar('-');
+            }
+            if (!parseDigit()) {
+                expected("digit");
+            }
+            while (parseDigit()) {
+            }
+            return true;
+        }
+
+        private boolean parseChar(char ch) throws IOException {
+            if (this.ch != ch) {
+                return false;
+            }
+            read();
+            return true;
+        }
+
+        private boolean parseDigit() throws IOException {
+            if (!isDigit()) {
+                return false;
+            }
+            read();
+            return true;
+        }
+
+        private void skipBlank() throws IOException {
+            while (isWhiteSpace()) {
+                read();
+            }
+        }
+
+        private void read() throws IOException {
+            if (ch == -1) {
+                throw new IOException("unexpected end of input");
+            }
+            if (index == fill) {
+                if (start != -1) {
+                    sb.append(buf, start, fill - start);
+                    start = 0;
+                }
+                fill = reader.read(buf, 0, buf.length);
+                index = 0;
+                if (fill == -1) {
+                    ch = -1;
+                    return;
+                }
+            }
+            ch = buf[index++];
+        }
+
+        private void startCapture() {
+            if (sb == null) {
+                sb = new StringBuilder();
+            }
+            start = index - 1;
+        }
+
+        private void pauseCapture() {
+            int end = ch == -1 ? index : index - 1;
+            sb.append(buf, start, end - start);
+            start = -1;
+        }
+
+        private String endCapture() {
+            int end = ch == -1 ? index : index - 1;
+            String captured;
+            if (sb.length() > 0) {
+                sb.append(buf, start, end - start);
+                captured = sb.toString();
+                sb.setLength(0);
+            } else {
+                captured = new String(buf, start, end - start);
+            }
+            start = -1;
+            return captured;
+        }
+
+        private boolean isWhiteSpace() {
+            return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
+        }
+
+        private boolean isDigit() {
+            return ch >= '0' && ch <= '9';
+        }
+
+        private boolean isHexDigit() {
+            return ch >= '0' && ch <= '9'
+                    || ch >= 'a' && ch <= 'f'
+                    || ch >= 'A' && ch <= 'F';
+        }
+
+        private void expected(String expected) throws IOException {
+            if (ch == -1) {
+                throw new IOException("unexpected end of input");
+            }
+            throw new IOException("expected " + expected);
+        }
+    }
 }

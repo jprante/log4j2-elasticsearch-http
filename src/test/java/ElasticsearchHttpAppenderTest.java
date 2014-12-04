@@ -30,7 +30,7 @@ public class ElasticsearchHttpAppenderTest {
     public void testMassiveLog() {
         Logger logger = LogManager.getLogger("test");
         for (int i = 0; i < 10000; i++) {
-            logger.info("Hello World, this is message " + i);
+            logger.info("{\"content\":\"Hello World, this is message " + i +"\",\"num\":"+i+"}");
         }
     }
 

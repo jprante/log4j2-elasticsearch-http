@@ -77,6 +77,7 @@ The index name may be a date format string like 'log4j2-'yyyyMMdd
 
 | Log4j2 Elasticsearch HTTP appender   | Release date |
 | -------------------------------------| -------------|
+| 1.0.3                                | Dec  4, 2014 |
 | 1.0.1                                | Nov 21, 2014 |
 | 1.0.0                                | Sep 15, 2014 |
 
@@ -96,7 +97,7 @@ The index name may be a date format string like 'log4j2-'yyyyMMdd
             <dependency>
                 <groupId>org.xbib.logging.log4j2</groupId>
                 <artifactId>log4j2-elasticsearch-http</artifactId>
-                <version>1.0.1</version>
+                <version>1.0.3</version>
             </dependency>
         </dependencies>
 

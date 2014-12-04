@@ -48,6 +48,9 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
      * @param url     The URL of a host in an Elasticsearch cluster to which log event documents will be written.
      * @param index   The index that Elasticsearch shall use for indexing
      * @param type    The type of the index Elasticsearch shall use for indexing
+     * @param create true if log documents must be created or false if log docs are allowed to be updated
+     * @param maxActionsPerBulkRequest maximum number of actions per bulk request
+     * @param logResponses true if responses should be logged
      * @return a new Elasticsearch provider
      */
     @PluginFactory
