@@ -95,18 +95,18 @@ public class ElasticsearchHttpClient {
         this.logresponses = logresponses;
         this.closed = false;
         this.service = Executors.newScheduledThreadPool(1);
-        service.schedule(new Callable<Object>() {
+        service.scheduleAtFixedRate(new Runnable() {
             @Override
-            public Object call() throws Exception {
+            public void run() {
                 try {
                     flush();
                 } catch (IOException e) {
                     logger.error(e.getMessage(), e);
                     throw new AppenderLoggingException(e);
                 }
-                return null;
+
             }
-        }, flushSecs, TimeUnit.SECONDS);
+        }, flushSecs, flushSecs, TimeUnit.SECONDS);
     }
 
     public ElasticsearchHttpClient index(Map<String, Object> source) {
