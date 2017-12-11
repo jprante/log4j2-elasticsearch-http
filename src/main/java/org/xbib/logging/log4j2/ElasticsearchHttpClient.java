@@ -144,6 +144,7 @@ public class ElasticsearchHttpClient {
                     connection.setDoOutput(true);
                     connection.setRequestMethod("POST");
                 }
+                connection.setRequestProperty("content-type", "application/x-ndjson");
                 StringBuilder sb = new StringBuilder();
                 int i = maxActionsPerBulkRequest;
                 String request;
