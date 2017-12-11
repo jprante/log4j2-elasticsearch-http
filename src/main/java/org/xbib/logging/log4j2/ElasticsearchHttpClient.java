@@ -4,9 +4,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * <p/>
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * <p/>
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -132,11 +132,10 @@ public class ElasticsearchHttpClient {
                         logger.error("logger is closed");
                         return;
                     }
-
                     connection = (HttpURLConnection) new URL(url).openConnection();
                     connection.setDoOutput(true);
                     connection.setRequestMethod("POST");
-
+                    connection.setRequestProperty("content-type", "application/x-ndjson");
                     StringBuilder sb = new StringBuilder();
                     int i = maxActionsPerBulkRequest;
                     String request;
@@ -164,7 +163,9 @@ public class ElasticsearchHttpClient {
                     }
 
                 } finally {
-                    connection.disconnect();
+                    if (connection != null) {
+                        connection.disconnect();
+                    }
                 }
             }
         } catch (Throwable t) {
