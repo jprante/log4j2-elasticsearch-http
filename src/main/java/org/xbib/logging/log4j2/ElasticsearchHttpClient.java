@@ -4,9 +4,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p/>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p/>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -95,18 +95,18 @@ public class ElasticsearchHttpClient {
         this.logresponses = logresponses;
         this.closed = false;
         this.service = Executors.newScheduledThreadPool(1);
-        service.schedule(new Callable<Object>() {
+        service.scheduleAtFixedRate(new Runnable() {
             @Override
-            public Object call() throws Exception {
+            public void run() {
                 try {
                     flush();
                 } catch (IOException e) {
                     logger.error(e.getMessage(), e);
                     throw new AppenderLoggingException(e);
                 }
-                return null;
+
             }
-        }, flushSecs, TimeUnit.SECONDS);
+        }, flushSecs, flushSecs, TimeUnit.SECONDS);
     }
 
     public ElasticsearchHttpClient index(Map<String, Object> source) {
@@ -127,48 +127,44 @@ public class ElasticsearchHttpClient {
         lock.lock();
         try {
             while (!requests.isEmpty()) {
-                if (closed) {
-                    logger.error("logger is closed");
-                    return;
-                }
-                if (connection == null) {
-                    connection = (HttpURLConnection) new URL(url).openConnection();
-                }
                 try {
-                    connection.setDoOutput(true);
-                    connection.setRequestMethod("POST");
-                } catch (Exception e) {
-                    logger.error(e);
-                    // retry
+                    if (closed) {
+                        logger.error("logger is closed");
+                        return;
+                    }
+
                     connection = (HttpURLConnection) new URL(url).openConnection();
                     connection.setDoOutput(true);
                     connection.setRequestMethod("POST");
-                }
-                connection.setRequestProperty("content-type", "application/x-ndjson");
-                StringBuilder sb = new StringBuilder();
-                int i = maxActionsPerBulkRequest;
-                String request;
-                while ((request = requests.poll()) != null && (i-- >= 0)) {
-                    sb.append(request);
-                }
-                OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream(), "UTF-8");
-                writer.write(sb.toString());
-                writer.close();
-                if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                    // read response
-                    if (logresponses) {
-                        sb.setLength(0);
-                        BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
-                        String s;
-                        while ((s = in.readLine()) != null) {
-                            sb.append(s);
-                        }
-                        in.close();
-                        logger.info(sb.toString());
+
+                    StringBuilder sb = new StringBuilder();
+                    int i = maxActionsPerBulkRequest;
+                    String request;
+                    while ((request = requests.poll()) != null && (i-- >= 0)) {
+                        sb.append(request);
                     }
-                } else {
-                    throw new AppenderLoggingException("no OK response: "
-                            + connection.getResponseCode() + " " + connection.getResponseMessage());
+                    OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream(), "UTF-8");
+                    writer.write(sb.toString());
+                    writer.close();
+                    if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                        // read response
+                        if (logresponses) {
+                            sb.setLength(0);
+                            BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
+                            String s;
+                            while ((s = in.readLine()) != null) {
+                                sb.append(s);
+                            }
+                            in.close();
+                            logger.info(sb.toString());
+                        }
+                    } else {
+                        throw new AppenderLoggingException("no OK response: "
+                                + connection.getResponseCode() + " " + connection.getResponseMessage());
+                    }
+
+                } finally {
+                    connection.disconnect();
                 }
             }
         } catch (Throwable t) {
@@ -190,7 +186,7 @@ public class ElasticsearchHttpClient {
         closed = true;
     }
 
-    private String build(String index, String type, boolean create, Map<String,Object> source) {
+    private String build(String index, String type, boolean create, Map<String, Object> source) {
         index = index.indexOf('\'') < 0 ? index : getIndexNameDateFormat(index).format(new Date());
         StringBuilder sb = new StringBuilder();
         sb.append("{\"").append(create ? "create" : "index")
@@ -219,7 +215,7 @@ public class ElasticsearchHttpClient {
                 sb.append(((Boolean) object) ? "true" : "false");
             } else if (object instanceof Date) {
                 sb.append('"');
-                sb.append(format((Date)object));
+                sb.append(format((Date) object));
                 sb.append('"');
             } else {
                 sb.append('"');
@@ -242,17 +238,17 @@ public class ElasticsearchHttpClient {
         }
     }
 
-    private void build(StringBuilder sb, Map<String,Object> map) {
+    private void build(StringBuilder sb, Map<String, Object> map) {
         boolean started = false;
-        for (Map.Entry<String,Object> me : map.entrySet()) {
+        for (Map.Entry<String, Object> me : map.entrySet()) {
             if (started) {
                 sb.append(',');
             }
             // try to parse message as JSON
-            if ("message".equals(me.getKey()) && me.getValue() != null ) {
+            if ("message".equals(me.getKey()) && me.getValue() != null) {
                 JsonParser parser = new JsonParser(new StringReader(me.getValue().toString()));
                 try {
-                    build(sb, (Map<String,Object>)parser.parse());
+                    build(sb, (Map<String, Object>) parser.parse());
                 } catch (Throwable e) {
                     sb.append("\"").append(me.getKey()).append("\":");
                     build(sb, me.getValue());
@@ -461,9 +457,9 @@ public class ElasticsearchHttpClient {
             return list;
         }
 
-        private Map<String,Object> parseMap() throws IOException {
+        private Map<String, Object> parseMap() throws IOException {
             read();
-            Map<String,Object> object = new LinkedHashMap<String,Object>();
+            Map<String, Object> object = new LinkedHashMap<String, Object>();
             skipBlank();
             if (parseChar('}')) {
                 return object;
