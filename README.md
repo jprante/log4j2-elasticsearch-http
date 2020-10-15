@@ -1,3 +1,5 @@
+:warning: **This repository will be removed soon without any further notice**
+
 # Log4j2 Elasticsearch HTTP appender
 
 This NoSql Log4j2 appenderlogs messages to Elasticsearch. 
